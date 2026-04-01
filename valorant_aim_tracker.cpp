@@ -51,7 +51,6 @@ static void updateTooltip();
 LRESULT CALLBACK TipWndProc(HWND hw, UINT msg, WPARAM wp, LPARAM lp);
 static void registerTipClass(HINSTANCE hInst);
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-static std::string GetFileNameOnly(const std::string& path);
 static void UpdateTabText(int idx);
 static void AddTab(const std::string& filePath, const std::string& content);
 static void RemoveTab(int idx);
@@ -105,7 +104,6 @@ struct TabData {
     std::string filePath;
     std::string content;
 };
-static void UpdateCurrentTabContent();
 static std::vector<TabData> g_tabs;
 static int g_activeTab = -1;
 
@@ -510,6 +508,18 @@ static LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM 
         if (msg == WM_VSCROLL) {
             SyncVerticalScroll(hwnd, other);
         }
+        return 0; // Prevent default processing to avoid crash
+    }
+    break;
+
+    case WM_MOUSEWHEEL:
+    {
+        HWND other = (hwnd == g_hRaw) ? g_hDisp : g_hRaw;
+        // Forward mouse wheel to the other control
+        SendMessageA(other, msg, wp, lp);
+        // Synchronize vertical positions
+        SyncVerticalScroll(hwnd, other);
+        return 0; // Prevent default processing to avoid crash
     }
     break;
     }
@@ -666,7 +676,14 @@ static void doNewTab() {
 }
 
 static void doCloseTab() {
-    if (g_activeTab < 0) return;
+    if (g_activeTab < 0 || g_tabs.empty()) return;
+    
+    // Save current tab before closing
+    if (g_activeTab >= 0 && g_activeTab < (int)g_tabs.size()) {
+        g_tabs[g_activeTab].content = getRawText();
+        SaveCurrentTabToFile();
+    }
+    
     if (g_tabs.size() == 1) {
         char defaultPath[MAX_PATH] = {};
         GetModuleFileNameA(nullptr, defaultPath, MAX_PATH);
@@ -678,7 +695,10 @@ static void doCloseTab() {
         TabCtrl_SetCurSel(g_hTab, newIdx);
         LoadTab(newIdx);
         UpdateTabText(newIdx);
+        saveSettings();
+        return;
     }
+    
     RemoveTab(g_activeTab);
     if (g_tabs.empty()) {
         char defaultPath[MAX_PATH] = {};
