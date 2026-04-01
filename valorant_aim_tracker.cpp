@@ -84,6 +84,7 @@ static HFONT  g_hBtnFont = nullptr;
 static HBRUSH g_hDispBrush = nullptr;
 
 static bool   g_displayDirty = false;
+static bool   g_isScrolling = false;  // Prevent recursive scroll handling
 
 /* Settings (global for the whole app) */
 static char  g_fontName[LF_FACESIZE] = "Consolas";
@@ -501,6 +502,9 @@ static LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM 
     case WM_HSCROLL:
     case WM_VSCROLL:
     {
+        if (g_isScrolling) return DefSubclassProc(hwnd, msg, wp, lp);
+        g_isScrolling = true;
+        
         HWND other = (hwnd == g_hRaw) ? g_hDisp : g_hRaw;
         // Forward the scroll message to the other control
         SendMessageA(other, msg, wp, lp);
@@ -508,17 +512,22 @@ static LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM 
         if (msg == WM_VSCROLL) {
             SyncVerticalScroll(hwnd, other);
         }
+        g_isScrolling = false;
         return 0; // Prevent default processing to avoid crash
     }
     break;
 
     case WM_MOUSEWHEEL:
     {
+        if (g_isScrolling) return DefSubclassProc(hwnd, msg, wp, lp);
+        g_isScrolling = true;
+        
         HWND other = (hwnd == g_hRaw) ? g_hDisp : g_hRaw;
         // Forward mouse wheel to the other control
         SendMessageA(other, msg, wp, lp);
         // Synchronize vertical positions
         SyncVerticalScroll(hwnd, other);
+        g_isScrolling = false;
         return 0; // Prevent default processing to avoid crash
     }
     break;
