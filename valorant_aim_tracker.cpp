@@ -44,6 +44,35 @@ static void SaveCurrentTabToFile();
 static void UpdateCurrentTabContent();
 static LRESULT CALLBACK EditSubclassProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR);
 static std::string InputBox(const std::string& title, const std::string& prompt, const std::string& defaultValue);
+static LRESULT CALLBACK InputBoxProc(HWND hDlg, UINT msg, WPARAM wp, LPARAM lp);
+static void hideTip();
+static void showTip(const char* text, POINT screenPt);
+static void updateTooltip();
+LRESULT CALLBACK TipWndProc(HWND hw, UINT msg, WPARAM wp, LPARAM lp);
+static void registerTipClass(HINSTANCE hInst);
+LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+static std::string GetFileNameOnly(const std::string& path);
+static void UpdateTabText(int idx);
+static void AddTab(const std::string& filePath, const std::string& content);
+static void RemoveTab(int idx);
+static void LoadTab(int idx);
+static void SyncVerticalScroll(HWND source, HWND target);
+static int getCaretLine();
+static void buildIniPath();
+static void saveSettings();
+static void loadSettings();
+static void rebuildFont();
+static void RenameCurrentTab();
+static bool isNumber(const std::string& s);
+struct AvgResult { double avg; int count; };
+static AvgResult calcAvg(const std::string& line);
+static std::string processLine(const std::string& raw);
+static std::vector<std::string> getLines();
+static void doOpen();
+static void doNewTab();
+static void doCloseTab();
+static void doChooseFont();
+static void layoutControls(HWND hWnd);
 
 /* -- globals ---------------------------------------------------------------- */
 static HWND   g_hWnd = nullptr;
@@ -76,6 +105,7 @@ struct TabData {
     std::string filePath;
     std::string content;
 };
+static void UpdateCurrentTabContent();
 static std::vector<TabData> g_tabs;
 static int g_activeTab = -1;
 
@@ -372,7 +402,6 @@ static bool isNumber(const std::string& s) {
     return hasDigit;
 }
 
-struct AvgResult { double avg; int count; };
 static AvgResult calcAvg(const std::string& line) {
     size_t h = line.find('#');
     if (h == std::string::npos) return { 0,0 };
